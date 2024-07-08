@@ -3,35 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Location Map with Voice Control</title>
+    <title>Map Navigation with Voice Commands (Using annyang)</title>
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="manifest" href="manifest.json">
+    <!-- Custom CSS for the map and transcript box -->
     <style>
         #map {
-            height: 90vh;
+            height: 700px;
             width: 100%;
         }
-        #controls {
-            display: flex;
-            justify-content: center;
-            margin: 10px;
+        #transcript-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 1000;
         }
-        #controls button {
-            margin: 0 10px;
-            padding: 10px 20px;
+        #toggle-voice {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
             font-size: 16px;
+            cursor: pointer;
+            background-color: #002671;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="controls">
-        <button id="start">Start Voice Control</button>
-        <button id="stop">Stop Voice Control</button>
-    </div>
+    <div id="transcript-box"></div>
+    <button id="toggle-voice">Start Voice Control</button>
 
+    <!-- Leaflet and annyang scripts -->
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/artyom.js@1.0.6/build/artyom.window.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/annyang/2.6.1/annyang.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
