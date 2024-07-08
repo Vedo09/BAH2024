@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const apiKey = 'c7981bbbf316460e9565524340f6a3f2'; // Your OpenCage API key
+    const weatherbitKey = 'b28d5c933db742e1bd4dcf8dd2ac658c'; // Your Weatherbit API key
 
     // Prompt user to disable all extensions for smoother operation
     alert("For the best experience, please disable all browser extensions.");
@@ -7,11 +8,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the map and set its view to the initial coordinates and zoom level
     const map = L.map('map').setView([0, 0], 2);
 
-    // Add a tile layer to the map
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Base layers
+    const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    });
+
+    const satellite = L.tileLayer('https://{s}.sat.owm.io/sql/{z}/{x}/{y}?appid=b28d5c933db742e1bd4dcf8dd2ac658c', {
+        maxZoom: 19,
+        attribution: '© OpenWeatherMap'
+    });
+
+    const temperature = L.tileLayer('https://{s}.sat.owm.io/sql/{z}/{x}/{y}?appid=223289f5172b694784f5d8cb115fd82e', {
+        maxZoom: 19,
+        attribution: '© Weatherbit'
+    });
+
+    const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: '© OpenStreetMap contributors, © OpenTopoMap'
+    });
+
+    // Add the streets layer to the map by default
+    streets.addTo(map);
+
+    // Layer control
+    const baseLayers = {
+        "Streets": streets,
+        "Satellite": satellite,
+        "Temperature": temperature,
+        "Terrain": terrain
+    };
+
+    L.control.layers(baseLayers).addTo(map);
 
     // Marker for user's location
     let userMarker;
