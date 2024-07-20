@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const apiKey = 'c7981bbbf316460e9565524340f6a3f2'; // Your OpenCage API key
+    const openRouteKey = '5b3ce3597851110001cf624889bcfe633cf349c88f29f796e6b9b2f3'; // Your OpenRouteService API key
 
     // Prompt user to disable all extensions for smoother operation
     alert("For the best experience, please disable all browser extensions.");
@@ -7,11 +8,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the map and set its view to the initial coordinates and zoom level
     const map = L.map('map').setView([0, 0], 2);
 
-    // Add a tile layer to the map
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Base layers
+    const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    });
+
+    const satellite = L.tileLayer('https://{s}.sat.owm.io/sql/{z}/{x}/{y}', {
+        maxZoom: 19,
+        attribution: '© OpenWeatherMap'
+    });
+
+    const terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: '© OpenStreetMap contributors, © OpenTopoMap'
+    });
+
+    const precipitation = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenWeatherMap'
+    });
+
+    // Add the streets layer to the map by default
+    streets.addTo(map);
+
+    // Layer control
+    const baseLayers = {
+        "Streets": streets,
+        "Satellite": satellite,
+        "Terrain": terrain,
+        "Precipitation": precipitation
+    };
+
+    L.control.layers(baseLayers).addTo(map);
 
     // Marker for user's location
     let userMarker;
@@ -46,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Geolocation is not supported by your browser.');
     }
 
-    // Function to find a place using OpenCage and add a red pin
+    // Function to find a place using OpenCage and add a marker
     function findPlace(place) {
         fetch(`https://api.opencagedata.com/geocode/v1/json?q=${place}&key=${apiKey}`)
             .then(response => response.json())
@@ -55,19 +84,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const placeLatLng = [data.results[0].geometry.lat, data.results[0].geometry.lng];
                     map.setView(placeLatLng, 15, { animate: true, duration: 1.5 });
 
-                    // Create a custom red marker
-                    const redIcon = new L.Icon({
-                        iconUrl: 'https://chart.googleapis.com/chart?chst=d_map_pin_letter&chld=%E2%80%A2|FF0000',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                        iconSize: [21, 34],
-                        iconAnchor: [10, 34],
-                        popupAnchor: [0, -34],
-                        shadowSize: [35, 16],
-                        shadowAnchor: [10, 14]
-                    });
-
-                    // Add the red marker to the map
-                    L.marker(placeLatLng, { icon: redIcon }).addTo(map).bindPopup(`You searched for: ${place}`).openPopup();
+                    // Add the marker to the map
+                    L.marker(placeLatLng).addTo(map).bindPopup(`You searched for: ${place}`).openPopup();
                 } else {
                     alert('Place not found!');
                 }
@@ -75,41 +93,141 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(error => console.error('Error fetching place:', error));
     }
 
-    // Voice command setup using Artyom.js
-    const artyom = new Artyom();
-
-    artyom.addCommands({
-        indexes: ["find *place"],
-        smart: true,
-        action: (i, wildcard) => {
-            findPlace(wildcard);
+    // Function to switch layers based on voice commands
+    function switchLayer(layerName) {
+        switch (layerName.toLowerCase()) {
+            case 'streets':
+                map.addLayer(streets);
+                map.removeLayer(satellite);
+                map.removeLayer(terrain);
+                map.removeLayer(precipitation);
+                break;
+            case 'satellite':
+                map.addLayer(satellite);
+                map.removeLayer(streets);
+                map.removeLayer(terrain);
+                map.removeLayer(precipitation);
+                break;
+            case 'terrain':
+                map.addLayer(terrain);
+                map.removeLayer(streets);
+                map.removeLayer(satellite);
+                map.removeLayer(precipitation);
+                break;
+            case 'precipitation':
+                map.addLayer(precipitation);
+                map.removeLayer(streets);
+                map.removeLayer(satellite);
+                map.removeLayer(terrain);
+                break;
+            default:
+                alert('Layer not recognized. Please say "streets", "satellite", "terrain", or "precipitation".');
         }
-    });
-
-    // Functions to start and stop voice recognition
-    function startVoiceControl() {
-        artyom.initialize({
-            lang: "en-US",
-            continuous: true,
-            listen: true,
-            debug: true,
-            speed: 1
-        }).then(() => {
-            console.log("Artyom has been successfully initialized.");
-        }).catch(err => {
-            console.error("Artyom couldn't be initialized: ", err);
-        });
     }
 
-    function stopVoiceControl() {
-        artyom.fatality().then(() => {
-            console.log("Artyom has been stopped.");
-        }).catch(err => {
-            console.error("Artyom couldn't be stopped: ", err);
-        });
+    // Function to get coordinates of a place using OpenCage API
+    function getCoordinates(place) {
+        return fetch(`https://api.opencagedata.com/geocode/v1/json?q=${place}&key=${apiKey}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results.length > 0) {
+                    return [data.results[0].geometry.lat, data.results[0].geometry.lng];
+                } else {
+                    throw new Error('Place not found!');
+                }
+            });
     }
 
-    // Event listeners for start and stop buttons
-    document.getElementById('start').addEventListener('click', startVoiceControl);
-    document.getElementById('stop').addEventListener('click', stopVoiceControl);
+    // Function to create a route using OpenRouteService API
+    function createRoute(start, end) {
+        getCoordinates(start).then(startCoords => {
+            getCoordinates(end).then(endCoords => {
+                const body = {
+                    coordinates: [
+                        [startCoords[1], startCoords[0]],
+                        [endCoords[1], endCoords[0]]
+                    ],
+                    format: 'geojson'
+                };
+
+                fetch(`https://api.openrouteservice.org/v2/directions/driving-car/geojson?api_key=${openRouteKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const route = data.features[0].geometry;
+                    const routeLayer = L.geoJSON(route, {
+                        style: {
+                            color: 'blue',
+                            weight: 4,
+                            opacity: 0.7
+                        }
+                    }).addTo(map);
+
+                    map.fitBounds(routeLayer.getBounds(), { animate: true, duration: 1.5 });
+
+                    // Display route summary
+                    const routeSummary = `Route from ${start} to ${end}`;
+                    displayTranscript(routeSummary);
+                })
+                .catch(error => console.error('Error creating route:', error));
+            }).catch(error => alert(error.message));
+        }).catch(error => alert(error.message));
+    }
+
+    // Voice command setup using annyang
+    if (annyang) {
+        const commands = {
+            'find *place': (place) => {
+                const transcript = `Find: ${place}`;
+                displayTranscript(transcript);
+                console.log(transcript);
+                findPlace(place);
+            },
+            'switch to streets': () => {
+                switchLayer('streets');
+                const transcript = 'Switch to: streets';
+                displayTranscript(transcript);
+                console.log(transcript);
+            },
+            'switch to satellite': () => {
+                switchLayer('satellite');
+                const transcript = 'Switch to: satellite';
+                displayTranscript(transcript);
+                console.log(transcript);
+            },
+            'switch to terrain': () => {
+                switchLayer('terrain');
+                const transcript = 'Switch to: terrain';
+                displayTranscript(transcript);
+                console.log(transcript);
+            },
+            'switch to precipitation': () => {
+                switchLayer('precipitation');
+                const transcript = 'Switch to: precipitation';
+                displayTranscript(transcript);
+                console.log(transcript);
+            },
+            'route from *start to *end': (start, end) => {
+                const transcript = `Route from: ${start} to: ${end}`;
+                displayTranscript(transcript);
+                console.log(transcript);
+                createRoute(start, end);
+            }
+        };
+
+        annyang.addCommands(commands);
+        annyang.start(); // Start voice control by default
+    } else {
+        console.log('Annyang not supported.');
+    }
+
+    // Function to display the spoken text in a transcript box
+    function displayTranscript(text) {
+        document.getElementById('transcript-box').textContent = text;
+    }
 });
